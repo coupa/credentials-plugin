@@ -32,13 +32,17 @@ import com.cloudbees.plugins.credentials.matchers.CQLLexer;
 import com.cloudbees.plugins.credentials.matchers.CQLParser;
 import com.cloudbees.plugins.credentials.matchers.CQLSyntaxException;
 import com.cloudbees.plugins.credentials.matchers.ConstantMatcher;
+import com.cloudbees.plugins.credentials.common.IdCredentials;
 import com.cloudbees.plugins.credentials.matchers.IdMatcher;
+import com.cloudbees.plugins.credentials.matchers.IdPrefixMatcher;
 import com.cloudbees.plugins.credentials.matchers.InstanceOfMatcher;
 import com.cloudbees.plugins.credentials.matchers.NotMatcher;
 import com.cloudbees.plugins.credentials.matchers.ScopeMatcher;
 import com.cloudbees.plugins.credentials.matchers.UsernameMatcher;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.*;
 import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -69,6 +73,9 @@ import org.apache.commons.lang.StringUtils;
  * @since 1.5
  */
 public class CredentialsMatchers {
+
+    private static final Logger logger = Logger.getLogger(CredentialsMatchers.class.getName());
+    private static AtomicInteger incr_value = new AtomicInteger(1);
 
     /**
      * Utility class.
@@ -130,6 +137,19 @@ public class CredentialsMatchers {
     @NonNull
     public static CredentialsMatcher withId(@NonNull String id) {
         return new IdMatcher(id);
+    }
+
+    /**
+     * Creates a matcher that matches {@link com.cloudbees.plugins.credentials.common.IdCredentials#getId()} with the
+     * supplied regex pattern
+     *
+     * @param regex_pattern the pattern to match for in the {@link com.cloudbees.plugins.credentials.common.IdCredentials#getId()}.
+     * @return a matcher that {@link com.cloudbees.plugins.credentials.common.IdCredentials#getId()} with the
+     * supplied regex pattern
+     */
+    @NonNull
+    public static CredentialsMatcher withIdPrefix(@NonNull String regex_pattern) {
+        return new IdPrefixMatcher(regex_pattern);
     }
 
     /**
@@ -392,6 +412,41 @@ public class CredentialsMatchers {
             }
         }
         return defaultIfNone;
+    }
+
+
+    /**
+     * Returns the credential in a cyclic from the list of credentials that matches the prefix of the supplied regex or 
+     * first credential that matches the supplied id matcher 
+     *
+     * @param credentials    the credentials to select from.
+     * @param prefixMatcher  the prefix matcher.
+     * @param idMatcher      the id matcher
+     * @param <C>            the type of credential.
+     * @return a matching credential or the supplied default.
+     */
+    @CheckForNull
+    public static <C extends Credentials> C cyclic(@NonNull Iterable<C> credentials,
+                                                    @NonNull CredentialsMatcher prefixMatcher,
+                                                    @NonNull CredentialsMatcher idMatcher) {
+        List<C> cred_list = new ArrayList<C>();
+        for ( C c: credentials) {
+            if(prefixMatcher.matches(c)){
+                cred_list.add(c);
+            }
+        }
+        // If there is no matching id with the prefix, then use the credential that is selected in the UI 
+        if (cred_list.isEmpty()){
+            return firstOrNull(credentials, idMatcher);
+        }
+        else {
+            // If the max value is reached, set the value back to one
+            if (incr_value.get() == Integer.MAX_VALUE)
+                incr_value.set(1);
+            C credential = cred_list.get(incr_value.getAndIncrement() % cred_list.size());
+            logger.log(Level.INFO, "The id value for github call is {0} ", ((IdCredentials) credential).getId());
+            return credential;
+        }
     }
 
     /**
