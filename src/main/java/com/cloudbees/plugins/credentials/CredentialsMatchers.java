@@ -440,7 +440,7 @@ public class CredentialsMatchers {
             return firstOrNull(credentials, idMatcher);
         }
         else {
-            // If the max value is reached, set the value back to one
+            // If incr_value reaches the max int value, set the value back to one.
             if (incr_value.get() == Integer.MAX_VALUE)
                 incr_value.set(1);
             C credential = cred_list.get(incr_value.getAndIncrement() % cred_list.size());
