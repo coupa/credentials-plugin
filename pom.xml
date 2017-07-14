@@ -32,8 +32,8 @@
     <version>2.21</version>
   </parent>
 
-  <artifactId>credentials</artifactId>
-  <version>credentials-2.1.14-coupa</version>
+  <artifactId>credentials-plugin</artifactId>
+  <version>credentials_2.1.14_coupa</version>
   <packaging>hpi</packaging>
 
   <name>Credentials Plugin</name>
